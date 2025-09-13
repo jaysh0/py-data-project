@@ -1,0 +1,55 @@
+{
+  "missing": {
+    "numeric_strategy": "median",
+    "categorical_strategy": "mode",
+    "include": [
+      "base_price_2015",
+      "weight_kg",
+      "rating",
+      "category",
+      "subcategory",
+      "brand",
+      "model",
+      "is_prime_eligible",
+      "launch_year"
+    ],
+    "exclude": []
+  },
+  "dates": {
+    "fields": [],
+    "target_format": "%Y-%m-%d",
+    "input_formats": []
+  },
+  "price": {
+    "fields": [
+      "base_price_2015"
+    ],
+    "allow_parentheses_negative": true,
+    "decimal_places": 2
+  },
+  "categorical": {
+    "fields": [
+      "category",
+      "subcategory",
+      "brand",
+      "model"
+    ],
+    "lowercase": true,
+    "strip": true,
+    "collapse_spaces": true,
+    "replace_ampersand": true,
+    "mappings": {
+      "category": {},
+      "subcategory": {},
+      "brand": {},
+      "model": {}
+    }
+  },
+  "geo": {
+    "city_field": null,
+    "canonical_cities": [],
+    "city_mappings": {},
+    "fuzzy_threshold": 0.87
+  }
+}
+

@@ -1,0 +1,102 @@
+{
+  "missing": {
+    "numeric_strategy": "median",
+    "categorical_strategy": "mode",
+    "include": [],
+    "exclude": []
+  },
+  "dates": {
+    "fields": ["order_date"],
+    "target_format": "%Y-%m-%d",
+    "input_formats": [
+      "%d/%m/%Y",
+      "%d-%m-%y",
+      "%Y-%m-%d"
+    ],
+    "invalid_to_null": true
+  },
+  "price": {
+    "fields": ["original_price_inr"],
+    "allow_parentheses_negative": true,
+    "decimal_places": 2,
+    "coerce_invalid_to_null": true
+  },
+  "ratings": {
+    "column": "customer_rating",
+    "decimal_places": 1,
+    "impute_strategy": "median"
+  },
+  "geo": {
+    "city_field": "customer_city",
+    "canonical_cities": [
+      "Bengaluru",
+      "Mumbai",
+      "Delhi",
+      "Hyderabad",
+      "Chennai",
+      "Kolkata",
+      "Pune",
+      "Jaipur"
+    ],
+    "city_mappings": {
+      "Bangalore": "Bengaluru",
+      "Bombay": "Mumbai",
+      "New Delhi": "Delhi"
+    },
+    "fuzzy_threshold": 0.87
+  },
+  "booleans": {
+    "fields": [
+      "is_prime_member",
+      "is_prime_eligible",
+      "is_festival_sale"
+    ]
+  },
+  "categorical": {
+    "fields": ["category"],
+    "lowercase": true,
+    "strip": true,
+    "collapse_spaces": true,
+    "replace_ampersand": true,
+    "mappings": {
+      "category": {
+        "electronic": "electronics",
+        "electronics": "electronics",
+        "electronics & accessories": "electronics",
+        "electronic accessories": "electronics"
+      }
+    }
+  },
+  "delivery": {
+    "column": "delivery_days",
+    "max_days": 30,
+    "clip_max": true
+  },
+  "dedup": {
+    "key_fields": [
+      "customer_id",
+      "product_id",
+      "order_date",
+      "original_price_inr"
+    ],
+    "quantity_field": null,
+    "strategy": "keep_first"
+  },
+  "outliers": {
+    "column": "original_price_inr",
+    "high_factor": 50.0,
+    "downscale_candidates": [10, 100],
+    "decimal_places": 2
+  },
+  "payment": {
+    "column": "payment_method",
+    "extra_mappings": {
+      "GooglePay": "UPI",
+      "PhonePe": "UPI",
+      "CREDIT_CARD": "Credit Card",
+      "CC": "Credit Card",
+      "COD": "Cash on Delivery",
+      "C.O.D": "Cash on Delivery"
+    }
+  }
+}
