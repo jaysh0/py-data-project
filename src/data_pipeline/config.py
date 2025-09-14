@@ -1,3 +1,5 @@
+"""JSON-backed configuration models for the cleaning pipeline."""
+
 import json
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
@@ -99,6 +101,11 @@ class PipelineConfig:
     outliers: OutliersConfig = field(default_factory=OutliersConfig)
 
 def load_config(path: str) -> PipelineConfig:
+    """Load a pipeline configuration from a JSON file.
+
+    Returns a fully-populated ``PipelineConfig`` with sensible defaults for
+    any missing sections.
+    """
     with open(path, "r", encoding="utf-8") as f:
         cfg = json.load(f)
 

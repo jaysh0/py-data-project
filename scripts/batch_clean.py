@@ -1,3 +1,10 @@
+"""Batch runner for the pandas cleaning pipeline.
+
+Discovers CSV files in a directory, selects a suitable cleaning config per
+file (catalog vs. transactions), runs the pipeline, and writes cleaned
+outputs plus JSON reports into a `cleaned/` subfolder.
+"""
+
 import argparse
 import json
 import os
@@ -16,6 +23,10 @@ import pandas as pd
 
 
 def find_csv_files(data_dir: str) -> List[str]:
+    """Return a sorted list of CSV file paths within ``data_dir``.
+
+    Skips non-CSV files, does not recurse into subdirectories.
+    """
     files = []
     for name in os.listdir(data_dir):
         if name.lower().endswith(".csv"):
@@ -24,6 +35,11 @@ def find_csv_files(data_dir: str) -> List[str]:
 
 
 def choose_config_for_file(path: str) -> str:
+    """Select a cleaning config for a given CSV path.
+
+    - Uses the catalog config if the filename contains "catalog".
+    - Falls back to the transactions config otherwise.
+    """
     name = os.path.basename(path).lower()
     base = os.path.dirname(os.path.dirname(__file__))  # repo root
     if "catalog" in name:
@@ -33,6 +49,10 @@ def choose_config_for_file(path: str) -> str:
 
 
 def process_file(input_path: str, output_path: str, report_path: str, config_path: str):
+    """Clean a single file and write outputs.
+
+    Returns the final report dict with step summaries and DQ stats.
+    """
     raw_df = pd.read_csv(input_path)
     cfg = load_config(config_path)
     cleaned_df, step_report = run_cleaning_df(raw_df, cfg)
@@ -45,6 +65,7 @@ def process_file(input_path: str, output_path: str, report_path: str, config_pat
 
 
 def main():
+    """CLI entrypoint: batch-clean all CSVs in a directory."""
     ap = argparse.ArgumentParser(description="Batch clean all CSVs in a data directory.")
     ap.add_argument("--data-dir", default=os.path.join(os.path.dirname(os.path.dirname(__file__)), "data"), help="Directory containing CSV files")
     ap.add_argument("--out-dir", help="Output directory for cleaned CSVs and reports (default: <data-dir>/cleaned)")

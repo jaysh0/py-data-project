@@ -1,3 +1,5 @@
+"""Initialize the Postgres analytics schema and populate the time dimension."""
+
 import os
 import sys
 from datetime import date
@@ -12,6 +14,7 @@ from data_pipeline.db_pg_utils import connect_postgres, execute_sql_file, popula
 
 
 def main():
+    """Create schema/tables and fill time_dimension for 2015–2025."""
     schema_path = os.path.join(_ROOT, "db", "schema.postgres.sql")
     conn = connect_postgres()
     execute_sql_file(conn, schema_path)
@@ -22,4 +25,3 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

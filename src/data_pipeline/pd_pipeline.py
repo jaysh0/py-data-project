@@ -1,3 +1,12 @@
+"""Pandas-powered data cleaning pipeline.
+
+This module implements configurable, composable cleaning steps (missing value
+imputation, date/price/category normalization, geo/boolean fixes, delivery
+parsing, de-duplication, outlier correction, and payment normalization) and a
+single `run_cleaning_df` orchestrator that runs them in sequence and returns a
+cleaned DataFrame along with a step-by-step report.
+"""
+
 from __future__ import annotations
 
 from typing import Dict, Any, List, Tuple, Optional
@@ -12,6 +21,11 @@ from .config import PipelineConfig
 # ---------- Helpers ----------
 
 def dq_report_df(before: pd.DataFrame, after: pd.DataFrame) -> Dict[str, Any]:
+    """Summarize basic data-quality metrics before/after cleaning.
+
+    Returns a dict with row counts and per-column missing counts for both
+    the input and output frames.
+    """
     def missing_counts(df: pd.DataFrame) -> Dict[str, int]:
         if df.empty:
             return {}
@@ -27,6 +41,11 @@ def dq_report_df(before: pd.DataFrame, after: pd.DataFrame) -> Dict[str, Any]:
 # ---------- Cleaning steps (pandas) ----------
 
 def impute_missing_pd(df: pd.DataFrame, cfg: PipelineConfig) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Impute missing values for numeric and categorical columns.
+
+    Numeric columns use mean/median (from config); categoricals use mode.
+    Returns the updated DataFrame and a report with imputed counts.
+    """
     include = cfg.missing.include or list(df.columns)
     exclude = set(cfg.missing.exclude or [])
     cols = [c for c in include if c in df.columns and c not in exclude]
@@ -59,6 +78,11 @@ def impute_missing_pd(df: pd.DataFrame, cfg: PipelineConfig) -> Tuple[pd.DataFra
 
 def standardize_dates_pd(df: pd.DataFrame, fields: List[str], invalid_to_null: bool, target_format: str,
                          input_formats: List[str]) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Parse and normalize date columns to a target string format.
+
+    Tries explicit formats first, then a catch-all parse. Optionally coerces
+    invalid parses to nulls. Returns a per-field converted count.
+    """
     changed = {f: 0 for f in fields if f in df.columns}
     for f in fields:
         if f not in df.columns:
@@ -88,6 +112,7 @@ _CURRENCY_RE = re.compile(r"[^\d\-\.\,()]")
 
 def standardize_prices_pd(df: pd.DataFrame, fields: List[str], decimal_places: int,
                           coerce_invalid_to_null: bool) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Normalize currency-like text to numeric values with fixed decimals."""
     rep = {f: 0 for f in fields if f in df.columns}
     for f in fields:
         if f not in df.columns:
@@ -110,6 +135,7 @@ _STAR_RE = re.compile(r"^(\d+(?:\.\d+)?)\s*stars?$", re.IGNORECASE)
 _FRAC_RE = re.compile(r"^(\d+(?:\.\d+)?)\s*/\s*(\d+(?:\.\d+)?)$")
 
 def _parse_rating_val(s: Optional[str], scale_max: float = 5.0) -> Optional[float]:
+    """Parse a rating string (e.g., "4", "4 stars", "3/5") to a float."""
     if s is None:
         return None
     t = s.strip()
@@ -141,6 +167,7 @@ def _parse_rating_val(s: Optional[str], scale_max: float = 5.0) -> Optional[floa
 
 
 def standardize_ratings_pd(df: pd.DataFrame, column: str, decimal_places: int, impute: Any) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Normalize a ratings column to a bounded numeric scale with imputation."""
     if column not in df.columns:
         return df, {"ratings_changed": 0, "ratings_imputed": 0}
     s = df[column].astype("string")
@@ -161,6 +188,7 @@ def standardize_ratings_pd(df: pd.DataFrame, column: str, decimal_places: int, i
 def standardize_categories_pd(df: pd.DataFrame, fields: List[str], lowercase: bool, strip: bool,
                               collapse_spaces: bool, replace_ampersand: bool,
                               mappings: Dict[str, Dict[str, str]]) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Clean categorical text and apply optional per-field mappings."""
     rep = {f: 0 for f in fields if f in df.columns}
     for f in fields:
         if f not in df.columns:
@@ -190,6 +218,7 @@ def _normalize_city_name(s: str) -> str:
 
 def resolve_cities_pd(df: pd.DataFrame, column: Optional[str], canonical: List[str], mappings: Dict[str, str],
                       fuzzy_threshold: float) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Standardize city names via mappings, normalization, and fuzzy matching."""
     if not column or column not in df.columns:
         return df, {"geo_resolved": 0}
     canon_norm = { _normalize_city_name(c): c for c in canonical }
@@ -223,6 +252,7 @@ _TRUE_SET = {"true", "t", "yes", "y", "1"}
 _FALSE_SET = {"false", "f", "no", "n", "0"}
 
 def standardize_booleans_pd(df: pd.DataFrame, fields: List[str]) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Convert mixed boolean-like values (Yes/No, 1/0, Y/N) to True/False."""
     rep = {f: 0 for f in fields if f in df.columns}
     for f in fields:
         if f not in df.columns:
@@ -248,6 +278,7 @@ _RANGE_RE = re.compile(r"^(\d+)\s*[-–]\s*(\d+)")
 _NUM_RE = re.compile(r"^(\d+)")
 
 def standardize_delivery_pd(df: pd.DataFrame, column: Optional[str], max_days: int, clip_max: bool) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Parse delivery SLA text/ranges to integer days and clamp outliers."""
     if not column or column not in df.columns:
         return df, {"delivery_changed": 0, "delivery_nullified": 0}
     def parse(v: Any) -> Optional[int]:
@@ -275,6 +306,11 @@ def standardize_delivery_pd(df: pd.DataFrame, column: Optional[str], max_days: i
 
 
 def deduplicate_pd(df: pd.DataFrame, key_fields: List[str], quantity_field: Optional[str], strategy: str) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Drop or aggregate duplicates based on composite keys.
+
+    If ``strategy`` is "aggregate" and ``quantity_field`` exists, sums quantities
+    per key; otherwise keeps the first row and drops the rest.
+    """
     if not key_fields:
         return df, {"dropped": 0, "kept": int(len(df))}
     existing_keys = [k for k in key_fields if k in df.columns]
@@ -296,6 +332,7 @@ def deduplicate_pd(df: pd.DataFrame, key_fields: List[str], quantity_field: Opti
 
 def correct_outliers_pd(df: pd.DataFrame, column: Optional[str], high_factor: float,
                         downscale_candidates: List[int], decimal_places: int) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Identify extreme high values and attempt decimal downscale correction."""
     if not column or column not in df.columns:
         return df, {"corrected": 0, "flagged": 0}
     ser = pd.to_numeric(df[column], errors="coerce")
@@ -313,6 +350,7 @@ def correct_outliers_pd(df: pd.DataFrame, column: Optional[str], high_factor: fl
 
 
 def normalize_payment_pd(df: pd.DataFrame, column: Optional[str], extra_mappings: Dict[str, str]) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Map payment method variants (UPI/PhonePe/GPay, CC/CREDIT_CARD, COD) to canonical labels."""
     if not column or column not in df.columns:
         return df, {"payment_standardized": 0}
     def norm(s: Any) -> Any:
@@ -343,6 +381,7 @@ def normalize_payment_pd(df: pd.DataFrame, column: Optional[str], extra_mappings
 
 
 def run_cleaning_df(df: pd.DataFrame, cfg: PipelineConfig) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Run all configured cleaning steps and collect a step-by-step report."""
     # Work on a copy to avoid SettingWithCopy issues from upstream slices
     df = df.copy()
     report: Dict[str, Any] = {}

@@ -1,3 +1,5 @@
+"""Load/Upsert products dimension from the catalog (cleaned or raw)."""
+
 import os
 import sys
 import pandas as pd
@@ -12,6 +14,10 @@ from data_pipeline.db_pg_utils import connect_postgres
 
 
 def pick_catalog_path() -> str | None:
+    """Return path to the cleaned catalog if present, else the raw CSV.
+
+    Looks in data/cleaned/ first, then data/.
+    """
     # Prefer cleaned catalog if present
     cand_cleaned = os.path.join(_ROOT, "data", "cleaned", "amazon_india_products_catalog.cleaned.csv")
     cand_raw = os.path.join(_ROOT, "data", "amazon_india_products_catalog.csv")
@@ -23,6 +29,7 @@ def pick_catalog_path() -> str | None:
 
 
 def upsert_products(conn, df: pd.DataFrame):
+    """Upsert product rows into analytics.products with conflict on product_id."""
     # Normalize expected columns
     rename_map = {
         'sub_category': 'subcategory',  # accept both names, normalize to 'subcategory'
@@ -66,6 +73,7 @@ def upsert_products(conn, df: pd.DataFrame):
 
 
 def main():
+    """Entry point: locate catalog CSV and upsert into products table."""
     path = pick_catalog_path()
     if not path:
         print("Catalog file not found in data/ or data/cleaned/. Expected amazon_india_products_catalog.csv")

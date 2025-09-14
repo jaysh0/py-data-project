@@ -1,3 +1,9 @@
+"""Add category and brand columns to the transactions fact table (if missing).
+
+Useful when product dimension is sparse—allows dashboards to fall back on
+fact-level segmentation.
+"""
+
 import os
 import sys
 
@@ -10,6 +16,7 @@ from data_pipeline.db_pg_utils import connect_postgres
 
 
 def main():
+    """Execute ALTER TABLEs and supporting indexes under the analytics schema."""
     conn = connect_postgres()
     with conn.cursor() as cur:
         cur.execute("SET search_path = analytics, public;")
@@ -24,4 +31,3 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -1,3 +1,9 @@
+"""Load cleaned CSVs from data/cleaned into Postgres transactions fact.
+
+Also upserts minimal products/customers if identifiers are present, and
+supports fact-level category/brand as fallbacks for segmentation.
+"""
+
 import os
 import sys
 from io import StringIO
@@ -32,6 +38,7 @@ RETURN_CANDS = ["is_returned", "returned"]
 
 
 def pick(df: pd.DataFrame, cands):
+    """Return the first matching column name present in ``df`` from ``cands``."""
     for c in cands:
         if c in df.columns:
             return c
@@ -39,6 +46,7 @@ def pick(df: pd.DataFrame, cands):
 
 
 def dataframe_to_copy_buffer(df: pd.DataFrame) -> StringIO:
+    """Serialize a DataFrame to a CSV StringIO buffer for COPY."""
     buf = StringIO()
     df.to_csv(buf, index=False, header=False)
     buf.seek(0)
@@ -46,6 +54,7 @@ def dataframe_to_copy_buffer(df: pd.DataFrame) -> StringIO:
 
 
 def upsert_dimension(conn, table: str, key_col: str, cols: list[str], df: pd.DataFrame):
+    """Idempotent upsert for small dimension slices using INSERT .. ON CONFLICT DO NOTHING."""
     if key_col not in df.columns:
         return
     sub = df[cols].dropna(subset=[key_col]).drop_duplicates()
@@ -64,6 +73,7 @@ def upsert_dimension(conn, table: str, key_col: str, cols: list[str], df: pd.Dat
 
 
 def main():
+    """Walk data/cleaned, load each CSV into analytics.transactions via COPY."""
     cleaned_dir = os.path.join(_ROOT, "data", "cleaned")
     conn = connect_postgres()
     cur = conn.cursor()

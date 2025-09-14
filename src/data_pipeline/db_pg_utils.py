@@ -1,3 +1,5 @@
+"""Utilities for initializing and populating the Postgres analytics schema."""
+
 import os
 from datetime import date, timedelta
 from typing import Optional
@@ -7,6 +9,10 @@ from psycopg2.extensions import connection as PGConnection
 
 
 def connect_postgres(dsn: Optional[str] = None) -> PGConnection:
+    """Create a Postgres connection and set ``search_path`` to ``analytics``.
+
+    Reads DSN from the parameter or ``POSTGRES_DSN`` environment variable.
+    """
     dsn = dsn or os.environ.get("POSTGRES_DSN") or "dbname=postgres user=postgres host=localhost password=postgres"
     conn = psycopg2.connect(dsn)
     with conn.cursor() as cur:
@@ -16,6 +22,7 @@ def connect_postgres(dsn: Optional[str] = None) -> PGConnection:
 
 
 def execute_sql_file(conn: PGConnection, path: str):
+    """Execute a .sql file against an open Postgres connection."""
     with open(path, "r", encoding="utf-8") as f:
         sql = f.read()
     with conn.cursor() as cur:
@@ -24,10 +31,16 @@ def execute_sql_file(conn: PGConnection, path: str):
 
 
 def yyyymmdd(d: date) -> int:
+    """Convert a ``date`` to an integer key in YYYYMMDD format."""
     return d.year * 10000 + d.month * 100 + d.day
 
 
 def populate_time_dimension_pg(conn: PGConnection, start: date, end: date, fiscal_year_start_month: int = 4):
+    """Populate or upsert rows in ``time_dimension`` for a date range.
+
+    Includes calendar attributes and fiscal year/quarter given a fiscal year
+    start month (default April for India).
+    """
     rows = []
     d = start
     while d <= end:
@@ -69,4 +82,3 @@ def populate_time_dimension_pg(conn: PGConnection, start: date, end: date, fisca
             rows,
         )
     conn.commit()
-
